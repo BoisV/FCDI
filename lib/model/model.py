@@ -72,7 +72,7 @@ class SimilarityNet(nn.Module):
             nn.ReLU()
         )
         self.sim_neuron = nn.Sequential(
-            nn.Linear(in_features=64, out_features=1, bias=True),
+            nn.Linear(in_features=64, out_features=2, bias=True),
             # nn.Softmax(dim=1)
         )
 
