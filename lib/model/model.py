@@ -54,10 +54,16 @@ class FeatrueExtractor(nn.Module):
         x = self.fc2(x)
         return x
 
-    def forward(self, x1, x2):
-        x1 = self.cal(x1)
-        x2 = self.cal(x2)
-        return x1, x2
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = self.conv5(x)
+        x = torch.flatten(x, start_dim=1, )
+        x = self.fc1(x)
+        x = self.fc2(x)
+        return x
 
 
 class SimilarityNet(nn.Module):
@@ -65,11 +71,11 @@ class SimilarityNet(nn.Module):
         super(SimilarityNet, self).__init__()
         self.fcA = nn.Sequential(
             nn.Linear(in_features=200, out_features=2048, bias=True),
-            nn.ReLU()
+            nn.Tanh()
         )
         self.fcB = nn.Sequential(
             nn.Linear(in_features=2048*3, out_features=64, bias=True),
-            nn.ReLU()
+            nn.Tanh()
         )
         self.sim_neuron = nn.Sequential(
             nn.Linear(in_features=64, out_features=2, bias=True),
@@ -79,7 +85,8 @@ class SimilarityNet(nn.Module):
     def forward(self, x1, x2):
         x1_inter = self.fcA(x1)
         x2_inter = self.fcA(x2)
-        X = torch.cat([x1_inter, x2_inter, x1_inter*x2_inter], dim=1).flatten(start_dim=1)
+        X = torch.cat([x1_inter, x2_inter, x1_inter*x2_inter],
+                      dim=1).flatten(start_dim=1)
         X = self.fcB(X)
         return self.sim_neuron(X)
 
