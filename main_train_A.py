@@ -1,4 +1,5 @@
 import os
+
 import torch
 from torch import cuda, device, nn, optim
 from torch.nn import init
@@ -20,8 +21,10 @@ class PhaseANet(nn.Module):
         super(PhaseANet, self).__init__()
         self.features = FeatrueExtractor()
         self.classifier = nn.Sequential(
+            # nn.Linear(in_features=200, out_features=100, bias=True),
+            # nn.ReLU(),
             nn.Linear(in_features=200, out_features=num_classes, bias=True),
-            nn.Softmax(dim=1)
+            # nn.Softmax(dim=1)
         )
 
     def forward(self, x):
@@ -34,8 +37,9 @@ def cal_acc(pred, Y):
 
 
 model_root = './models'
-root = './data/patches/phaseA'
+root = './data/patches/phaseA128'
 num_classes = 10
+MAX_EPOCHES = 300
 
 if __name__ == "__main__":
     device = device('cuda' if cuda.is_available() else 'cpu')
@@ -57,10 +61,9 @@ if __name__ == "__main__":
     if state_dict is not None:
         model.load_state_dict(state_dict)
 
-    optimizer = optim.SGD(model.parameters(), lr=1)
+    optimizer = optim.SGD(model.parameters(), lr=0.001)
     scheduler = StepLR(optimizer, step_size=3, gamma=0.5)
     criterion = nn.CrossEntropyLoss()
-    MAX_EPOCHES = 30
 
     logger.info(model.device_ids)
     logger.info(model)
@@ -68,7 +71,7 @@ if __name__ == "__main__":
     train_dataset = FCDIDaset(root=root,
                               train=True,
                               transform=transform)
-    train_iter = DataLoader(train_dataset, batch_size=50, shuffle=True)
+    train_iter = DataLoader(train_dataset, batch_size=10, shuffle=False)
 
     for epoch in range(initial_epoch, MAX_EPOCHES, 1):
         loss_sum = 0
@@ -86,10 +89,13 @@ if __name__ == "__main__":
             acc_sum += acc
             loss_sum += loss
             batch_idx += 1
-            logger.info(
-                'Epoch:[{}/{}] batch_idx:{} loss={:.5f} accuracy={:.5f}'.format(epoch+1, MAX_EPOCHES, batch_idx, loss, acc))
+            if batch_idx % 30 == 0:
+                logger.info(
+                    'Epoch:[{}/{}] batch_idx:{} loss={:.5f} accuracy={:.5f}'.format(epoch+1, MAX_EPOCHES, batch_idx, loss_sum/30, acc_sum/30))
+                loss_sum = 0
+                acc_sum = 0
 
-        logger.info(
-            'Epoch:[{}/{}] loss={:.5f} accuracy={:.5f}'.format(epoch+1, MAX_EPOCHES, loss_sum/batch_idx, acc_sum/batch_idx))
-        torch.save(model.state_dict(),
-                   './models/model_{:03d}.pth'.format(epoch))
+        # logger.info(
+        #     'Epoch:[{}/{}] loss={:.5f} accuracy={:.5f}'.format(epoch+1, MAX_EPOCHES, loss_sum/batch_idx, acc_sum/batch_idx))
+        # torch.save(model.state_dict(),
+        #            './models/model_{:03d}.pth'.format(epoch))
