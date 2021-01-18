@@ -118,8 +118,9 @@ def imgSlicer(file_path, patch_size=256, stride=256):
     return patches
 
 
-def createDataset(root, save_path, patch_size=256):
+def createDataset(root, save_path, patch_size=256, processes=40):
     model_paths = os.listdir(root)
+    pool = multiprocessing.Pool(processes=processes)
     for model in model_paths:
         model_path = os.path.join(root, model)
         imgs = os.listdir(model_path)
@@ -131,19 +132,23 @@ def createDataset(root, save_path, patch_size=256):
         try:
             processes = []
             for i in range(num_processes):
-                p = multiprocessing.Process(
-                    target=multiImgSlicer,
-                    args=('process{:02d}'.format(i+1), patch_size, model_path, imgs[math.floor(i / num_processes * length):math.floor((i+1) / num_processes * length)], save_model_path))
-                processes.append(p)
-            for p in processes:
-                p.start()
-                # p.join()
+                # p = multiprocessing.Process(
+                #     target=multiImgSlicer,
+                #     args=('process{:02d}'.format(i+1), patch_size, model_path, imgs[math.floor(i / num_processes * length):math.floor((i+1) / num_processes * length)], save_model_path))
+                # processes.append(p)
+                pool.apply_async(imgSlicerProcess, ('process{:02d}'.format(i+1), patch_size, model_path, imgs[math.floor(
+                    i / num_processes * length):math.floor((i+1) / num_processes * length)], save_model_path))
+            # for p in processes:
+            #     p.start()
+            #     # p.join()
         except:
             print("Error: 无法启动进程！")
             traceback.print_exc()
+    pool.close()
+    pool.join()
 
 
-def multiImgSlicer(thread_name, patch_size, model_path, imgs, save_model_path):
+def imgSlicerProcess(thread_name, patch_size, model_path, imgs, save_model_path):
     print(thread_name+" start!")
     for img in imgs:
         img_path = os.path.join(model_path, img)
@@ -156,24 +161,28 @@ def multiImgSlicer(thread_name, patch_size, model_path, imgs, save_model_path):
     print(thread_name+" end!")
 
 
-def copy(root, new_root, number=100000):
+def copy(root, new_root, number=100000, processes=10):
     models = os.listdir(root)
     num_per_model = math.floor(number / len(models))
-    processes = []
+    pool = multiprocessing.Pool(processes=processes)
     models.remove('list.txt')
     for model in models:
         model_path = os.path.join(root, model)
         if not os.path.exists(os.path.join(new_root, model)):
-            os.mkdir(os.path.join(new_root, model))
+            os.makedirs(os.path.join(new_root, model))
         imgs = os.listdir(model_path)
         indices = np.arange(len(imgs))
         np.random.shuffle(indices)
-        p = multiprocessing.Process(target=copyProcess,
-                                    args=(model, new_root, num_per_model, model,
-                                          model_path, imgs, indices))
-        processes.append(p)
-    for p in processes:
-        p.start()
+        # p = multiprocessing.Process(target=copyProcess,
+        #                             args=(model, new_root, num_per_model, model,
+        #                                   model_path, imgs, indices))
+        # processes.append(p)
+        pool.apply_async(copyProcess, (model, new_root,
+                                       num_per_model, model, model_path, imgs, indices))
+    # for p in processes:
+    #     p.start()
+    pool.close()
+    pool.join()
 
 
 def copyProcess(process_name, new_root, num_per_model, model, model_path, imgs, indices):
@@ -187,12 +196,11 @@ def copyProcess(process_name, new_root, num_per_model, model, model_path, imgs, 
     print(process_name, "end coping!")
 
 
-if __name__ == "__main__":
-    root = '../../data/sp-society-camera-model-identification/train/train'
-    save_path = '../../data/patches/phaseA/train_origin'
-    new_save_path = '../../data/patches/phaseA/train'
-    # createDataset(root=root, save_path=save_path, patch_size=256)
-    # make_txt_file(save_path)
-    # printClasses(save_path)
-
-    copy(save_path, new_save_path, number=100000)
+# if __name__ == "__main__":
+#     root = '../../data/sp-society-camera-model-identification/train/train'
+#     save_path = '../../data/patches/phaseA/train128'
+#     new_save_path = '../../data/patches/phaseA/train2'
+#     createDataset(root=root, save_path=save_path, patch_size=256)
+#     make_txt_file(save_path)
+#     printClasses(save_path)
+#     copy(save_path, new_save_path, number=100000)

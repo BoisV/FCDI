@@ -34,7 +34,7 @@ class FCDIDaset(VisionDataset):
         else:
             self.root = os.path.join(root, 'test')
 
-        if not os.path.exists(self.train):
+        if not os.path.exists(self.root):
             raise FileNotFoundError(self.train + ' dir is Not Found!')
 
         self.img_pathes = []
