@@ -3,14 +3,12 @@
 # @Time : 2021/1/10 10:59
 # @Author : lepold
 # @File : utils.py
-
 """
     to prepare the image patch from our exist image data and divide into 3 groups,
     1) "group_a" : totally 50 camera models and promise 40k image patches each model,
     2) "group_b" : totally 30 camera models and each has at least 25k patches,
     3) "group_c" : the remaining patches from other camera models.
 """
-
 
 # prepare data: move all images to a dir and split by camera models.
 # e.g, "root dir" + "huawei" + "image_patch_0",
@@ -27,6 +25,7 @@ from PIL import Image
 
 def organize_image_path():
     pass
+
 
 # STEP 3
 # In the original paper, there exists three task: preprocess, camera model compare and edit log compare.
@@ -83,8 +82,7 @@ def make_txt_file(root):
                 flag = False
             else:
                 path_str.append('\n')
-            path_str.append(os.path.join(model, img) +
-                            '&{:02d}'.format(index))
+            path_str.append(os.path.join(model, img) + '&{:02d}'.format(index))
 
     with open(os.path.join(root, 'list.txt'), 'w') as f:
         f.writelines(path_str)
@@ -109,16 +107,16 @@ def imgSlicer(file_path, patch_size=256, stride=256):
     img = np.array(img)
     h, w = img.shape[0], img.shape[1]
     patches = []
-    for i in range(0, h-patch_size+1, stride):
-        for j in range(0, w-patch_size+1, stride):
-            patch = img[i:i+patch_size, j:j+patch_size]
+    for i in range(0, h - patch_size + 1, stride):
+        for j in range(0, w - patch_size + 1, stride):
+            patch = img[i:i + patch_size, j:j + patch_size]
             if patch is None:
                 continue
             patches.append(patch)
     return patches
 
 
-def createDataset(root, save_path, patch_size=256, processes=40):
+def createDataset(root, save_path, patch_size=256, stride=256, processes=40):
     model_paths = os.listdir(root)
     pool = multiprocessing.Pool(processes=processes)
     for model in model_paths:
@@ -126,7 +124,7 @@ def createDataset(root, save_path, patch_size=256, processes=40):
         imgs = os.listdir(model_path)
         save_model_path = os.path.join(save_path, model)
         if not os.path.exists(save_model_path):
-            os.mkdir(save_model_path)
+            os.makedirs(save_model_path)
         length = len(imgs)
         num_processes = 4
         try:
@@ -136,8 +134,12 @@ def createDataset(root, save_path, patch_size=256, processes=40):
                 #     target=multiImgSlicer,
                 #     args=('process{:02d}'.format(i+1), patch_size, model_path, imgs[math.floor(i / num_processes * length):math.floor((i+1) / num_processes * length)], save_model_path))
                 # processes.append(p)
-                pool.apply_async(imgSlicerProcess, ('process{:02d}'.format(i+1), patch_size, model_path, imgs[math.floor(
-                    i / num_processes * length):math.floor((i+1) / num_processes * length)], save_model_path))
+                pool.apply_async(
+                    imgSlicerProcess,
+                    ('process{:02d}'.format(i + 1), patch_size, stride,
+                     model_path,
+                     imgs[math.floor(i / num_processes * length):math.floor(
+                         (i + 1) / num_processes * length)], save_model_path))
             # for p in processes:
             #     p.start()
             #     # p.join()
@@ -148,17 +150,17 @@ def createDataset(root, save_path, patch_size=256, processes=40):
     pool.join()
 
 
-def imgSlicerProcess(thread_name, patch_size, model_path, imgs, save_model_path):
-    print(thread_name+" start!")
+def imgSlicerProcess(thread_name, patch_size, stride, model_path, imgs,
+                     save_model_path):
+    print(thread_name + " start!")
     for img in imgs:
         img_path = os.path.join(model_path, img)
-        patches = imgSlicer(img_path, patch_size=patch_size, stride=256)
+        patches = imgSlicer(img_path, patch_size=patch_size, stride=stride)
         for idx, patch in enumerate(patches):
-            patch_img = Image.fromarray(
-                patch.astype('uint8')).convert('RGB')
-            patch_name = "{:s}_{:04d}.png".format(img[:-4], idx+1)
+            patch_img = Image.fromarray(patch.astype('uint8')).convert('RGB')
+            patch_name = "{:s}_{:04d}.png".format(img[:-4], idx + 1)
             patch_img.save(os.path.join(save_model_path, patch_name))
-    print(thread_name+" end!")
+    print(thread_name + " end!")
 
 
 def copy(root, new_root, number=100000, processes=10):
@@ -177,15 +179,17 @@ def copy(root, new_root, number=100000, processes=10):
         #                             args=(model, new_root, num_per_model, model,
         #                                   model_path, imgs, indices))
         # processes.append(p)
-        pool.apply_async(copyProcess, (model, new_root,
-                                       num_per_model, model, model_path, imgs, indices))
+        pool.apply_async(
+            copyProcess,
+            (model, new_root, num_per_model, model, model_path, imgs, indices))
     # for p in processes:
     #     p.start()
     pool.close()
     pool.join()
 
 
-def copyProcess(process_name, new_root, num_per_model, model, model_path, imgs, indices):
+def copyProcess(process_name, new_root, num_per_model, model, model_path, imgs,
+                indices):
     print(process_name, "start coping!")
     for index in indices[:num_per_model]:
         try:
